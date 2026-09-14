@@ -27,7 +27,7 @@ class Object{
 };
 
 // reads file as bytes into buffer
-vector<char> readImageBytes(const string& filename){
+vector<uint8_t> readImageBytes(const string& filename){
     // open file stream as binary
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
 
@@ -42,25 +42,22 @@ vector<char> readImageBytes(const string& filename){
     {
         std::cerr << "Something went wrong!" << std::endl;
     }
-    vector<char> buffer(static_cast<size_t>(size));
+    vector<uint8_t> buffer(static_cast<size_t>(size));
     file.seekg(0,std::ios::beg);
 
     // read raw bytes into buffer
-    if (file.read(buffer.data(),size)){
+    if (file.read(reinterpret_cast<char *>(buffer.data()),size)){
         cout << "Read file: " << size << " bytes" << std::endl;
     }
 
     return buffer;
 }
 
-void displayBytes(vector<char>& buffer){
-    for (size_t i=0; i<8; i++){
-        cout << std::hex
-             << std::setw(2)
-             << std::setfill('0')
-             << (static_cast<unsigned int>(
-                static_cast<unsigned char>(buffer[i])
-             ))
+void displayBytes(vector<uint8_t>& buffer)
+{
+    for (size_t i=0; i<8; ++i){
+        cout << std::setw(2)
+            << static_cast<unsigned int>(buffer[i])
              << ' ';
     }
     cout << "\n";
