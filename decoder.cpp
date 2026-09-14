@@ -2,13 +2,29 @@
 #include <fstream>
 #include <vector>
 #include <string>
-#include<iomanip>
+#include <iomanip>
+#include <cstddef>
+#include <array>
+#include <span>
 
 using std::vector;
 using std::string;
 using std::cout;
+using std::byte;
+using std::array;
 
-const string IMAGE = "dawg.png";
+static constexpr string IMAGE{"dawg.png"};
+static constexpr array<uint8_t,8> PNG_SIGNATURE{0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A};
+
+class Object{
+    public:
+        string ext;
+        vector<uint8_t> signature;
+        int length;
+        int chunk_type;
+        int chunk_data;
+        int crc;
+};
 
 // reads file as bytes into buffer
 vector<char> readImageBytes(const string& filename){
