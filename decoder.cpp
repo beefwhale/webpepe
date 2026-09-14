@@ -63,15 +63,31 @@ void displayBytes(vector<uint8_t>& buffer)
     cout << "\n";
 }
 
+// verify signature
+bool verifySignature(vector<uint8_t>& imageBytes, std::span<const uint8_t> sig)
+{
+    for (size_t i=0; i<sig.size(); ++i){
+        if(imageBytes[i] != sig[i]){
+            cout << imageBytes[i] << " " << sig[i] << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 int main()
 {
-    // convert file into raw bytes
-    vector<char> imageBytes = readImageBytes(IMAGE);
-    displayBytes(imageBytes);
+    // convert file into raw bytes and check for signature
+    vector<uint8_t> imageBytes = readImageBytes(IMAGE);
+    bool is_png = verifySignature(imageBytes, PNG_SIGNATURE);
+
+    cout << is_png << std::endl;
+    // displayBytes(imageBytes);
+    
     return 0;
 }
 
-//2. Verify PNG signature
+
 
 //3. Parse chunks:
    //[length][type][data][CRC]
