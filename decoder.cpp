@@ -17,13 +17,52 @@ using std::string;
 using std::vector;
 
 class Chunk {
+  private:
+    void parse_chunk(vector<uint8_t> &imageBytes) {
+        //  [data_len : 4 bytes ]
+        //  [type : 4 bytes  ]
+        //  [data : 0 to max]
+        //  [CRC : 4 bytes]
+
+        // chunk data_len
+        for (size_t i = start; i < start + 4; ++i) {
+            data_len = (data_len << 8) | imageBytes[i]; // shift by 8 bits every byte to combine them into one value
+        }
+
+        // cycle through bytes to parse chunk
+        end = data_len + 12;
+
+        size_t counter = 0;
+        for (size_t i = start + 4; i < start + 4 + end; ++i) {
+            // chunk type
+            if (counter < 4) {
+                type[counter] = imageBytes[i];
+            }
+            // chunk data
+            else if (counter < (4 + data_len) && data_len > 0) {
+                data.push_back(imageBytes[i]);
+            }
+            // CRC
+            else {
+                crc[counter - 4 - data_len] = imageBytes[i];
+            }
+            ++counter;
+        }
+    }
+
   public:
     size_t start;
     size_t end;
-    int data_len;
-    int chunk_type;
-    int chunk_data;
-    int crc;
+    size_t data_len = 0;
+    vector<int> data;
+    array<uint8_t, 4> type;
+    array<uint8_t, 4> crc;
+
+    // constructor
+    Chunk(vector<uint8_t> &imageBytes, size_t chunk_index) {
+        start = chunk_index;
+        parse_chunk(imageBytes);
+    }
 };
 
 class Image {
@@ -88,53 +127,22 @@ class Image {
     Image(const string &filename) {
         raw_image_bytes = readImageBytes(filename);
         ext = extractFileExt(filename);
+        // parse chunks
+        if (raw_image_bytes.size() > 0) {
+            size_t chunk_index = 8;
+            while (chunk_index < raw_image_bytes.size()) {
+                Chunk chunk = Chunk(raw_image_bytes, chunk_index);
+                chunk_collection.push_back(chunk);
+                chunk_index = chunk.end;
+            }
+        }
     }
 };
-
-// 3. Parse chunk:
-//  [data_len : 4 bytes ]
-//  [type : 4 bytes  ]
-//  [data : 0 to max]
-//  [CRC : 4 bytes]
-void parse_chunk(vector<uint8_t> &imageBytes, size_t start) {
-    uint32_t data_len = 0;
-    vector<int> data;
-    array<uint8_t, 4> type;
-    array<uint8_t, 4> crc;
-
-    // chunk data_len
-    for (size_t i = start; i < start + 4; ++i) {
-        data_len = (data_len << 8) | imageBytes[i]; // shift by 8 bits every byte to combine them into one value
-    }
-
-    // cycle through bytes to parse chunk
-    size_t end = 4 + data_len + 4 + 4;
-
-    size_t counter = 0;
-    for (size_t i = start + 4; i < start + 4 + end; ++i) {
-        // chunk type
-        if (counter < 4) {
-            type[counter] = imageBytes[i];
-        }
-        // chunk data
-        else if (counter < (4 + data_len) && data_len > 0) {
-            data.push_back(imageBytes[i]);
-        }
-        // CRC
-        else {
-            crc[counter - 4 - data_len] = imageBytes[i];
-        }
-        ++counter;
-    }
-}
 
 int main() {
     // create image object
     string demo = {"dawg.png"};
     Image image_obj = Image(demo);
-
-    // IHDR and IEND chunk
-    parse_chunk(image_obj.raw_image_bytes, 8);
 
     //   displayBytes(imageBytes, 8, 12);
 
