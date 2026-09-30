@@ -1,29 +1,30 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <iomanip>
-#include <cstddef>
 #include <array>
+#include <cstddef>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <span>
+#include <string>
+#include <vector>
 
-using std::vector;
-using std::string;
-using std::cout;
-using std::byte;
 using std::array;
+using std::byte;
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
 
 static constexpr string IMAGE{"dawg.png"};
-static constexpr array<uint8_t,8> PNG_SIGNATURE{0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A};
+static constexpr array<uint8_t, 8> PNG_SIGNATURE{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
 class Chunk {
-    public:
-        size_t start;
+  public:
+    size_t start;
     size_t end;
-        int data_len;
-        int chunk_type;
-        int chunk_data;
-        int crc;
+    int data_len;
+    int chunk_type;
+    int chunk_data;
+    int crc;
 };
 
 class Object {
@@ -34,49 +35,46 @@ class Object {
     vector<Chunk> chunk_collection;
 };
 
-// reads file as bytes into buffer
-vector<uint8_t> readImageBytes(const string& filename){
+// reads file as bytes into buffer vector<uint8_t>
+vector<uint8_t> readImageBytes(const string &filename) {
     // open file stream as binary
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
 
-    if (!file.is_open()){
-        std::cerr << "Failed to open iamge file:" << filename << std::endl;
-        return {}; 
+    if (!file.is_open()) {
+        std::cerr << "Failed to open image file:" << filename << endl;
+        return {};
     }
 
     // get file size and allowcate vector size
     std::streamsize size = file.tellg();
-    if (size < 0)
-    {
-        std::cerr << "Something went wrong!" << std::endl;
+    if (size < 0) {
+        std::cerr << "Something went wrong!" << endl;
     }
     vector<uint8_t> buffer(static_cast<size_t>(size));
-    file.seekg(0,std::ios::beg);
+    file.seekg(0, std::ios::beg);
 
     // read raw bytes into buffer
-    if (file.read(reinterpret_cast<char *>(buffer.data()),size)){
-        cout << "Read file: " << size << " bytes" << std::endl;
+    if (file.read(reinterpret_cast<char *>(buffer.data()), size)) {
+        cout << "Read file: " << size << " bytes" << endl;
     }
 
     return buffer;
 }
 
-void displayBytes(vector<uint8_t>& buffer)
-{
-    for (size_t i=0; i<8; ++i){
-        cout << std::setw(2)
-            << static_cast<unsigned int>(buffer[i])
-             << ' ';
+// debugging use
+void displayBytes(vector<uint8_t> &buffer, size_t start, size_t end) {
+    for (int i = start; i < end; ++i) {
+        cout << std::setw(2) << static_cast<unsigned int>(buffer[i]) << ' ';
     }
     cout << "\n";
 }
 
 // verify signature
-bool verifySignature(vector<uint8_t>& imageBytes, std::span<const uint8_t> sig)
-{
-    for (size_t i=0; i<sig.size(); ++i){
-        if(imageBytes[i] != sig[i]){
-            cout << imageBytes[i] << " " << sig[i] << std::endl;
+bool verifySignature(vector<uint8_t> &imageBytes,
+                     std::span<const uint8_t> sig) {
+    for (size_t i = 0; i < sig.size(); ++i) {
+        if (imageBytes[i] != sig[i]) {
+            cout << imageBytes[i] << " " << sig[i] << endl;
             return false;
         }
     }
@@ -121,6 +119,8 @@ void parse_chunk(vector<uint8_t> &imageBytes, size_t start) {
     }
 }
 
+void determine_chunk_type() {}
+
 int main() {
     // convert file into raw bytes and check for signature
     vector<uint8_t> imageBytes = readImageBytes(IMAGE);
@@ -131,28 +131,23 @@ int main() {
     parse_chunk(imageBytes, 8);
 
     //   displayBytes(imageBytes, 8, 12);
-    
+
     return 0;
 }
 
+// 4. Read IHDR
+// → width
+// → height
+// → bit depth
+// → color type
 
+// 5. Concatenate IDAT chunks
 
-//3. Parse chunks:
-   //[length][type][data][CRC]
+// 6. zlib/DEFLATE decompress IDAT
 
-//4. Read IHDR
-   //→ width
-   //→ height
-   //→ bit depth
-   //→ color type
+// 7. Reverse PNG scanline filters
 
-//5. Concatenate IDAT chunks
+// 8. Produce something like:
+// vector<uint8_t> pixels
 
-//6. zlib/DEFLATE decompress IDAT
-
-//7. Reverse PNG scanline filters
-
-//8. Produce something like:
-   //vector<uint8_t> pixels
-
-//9. Feed those pixels into your JPEG encode
+// 9. Feed those pixels into your JPEG encode
