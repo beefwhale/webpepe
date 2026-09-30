@@ -31,19 +31,16 @@ class Chunk {
 
         // cycle through bytes to parse chunk
         end = data_len + 12;
+        data_index = start + data_len + 4;
 
         size_t counter = 0;
-        for (size_t i = start + 4; i < start + 4 + end; ++i) {
+        for (size_t i = start + 4; i < end; ++i) {
             // chunk type
             if (counter < 4) {
                 type[counter] = imageBytes[i];
             }
-            // chunk data
-            else if (counter < (4 + data_len) && data_len > 0) {
-                data.push_back(imageBytes[i]);
-            }
-            // CRC
-            else {
+            // crc
+            else if (counter > (4 + data_len)) {
                 crc[counter - 4 - data_len] = imageBytes[i];
             }
             ++counter;
@@ -54,7 +51,7 @@ class Chunk {
     size_t start;
     size_t end;
     size_t data_len = 0;
-    vector<int> data;
+    size_t data_index;
     array<uint8_t, 4> type;
     array<uint8_t, 4> crc;
 
@@ -144,7 +141,9 @@ int main() {
     string demo = {"dawg.png"};
     Image image_obj = Image(demo);
 
-    //   displayBytes(imageBytes, 8, 12);
+    // IHDR chunk
+    Chunk &header_chunk = image_obj.chunk_collection[0];
+    cout << "Header Chunk Data Length: " << header_chunk.data_len << endl;
 
     return 0;
 }
