@@ -1,10 +1,12 @@
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 using std::array;
@@ -13,9 +15,6 @@ using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
-
-static constexpr string IMAGE{"dawg.png"};
-static constexpr array<uint8_t, 8> PNG_SIGNATURE{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
 
 class Chunk {
   public:
@@ -27,59 +26,70 @@ class Chunk {
     int crc;
 };
 
-class Object {
+class Image {
+  private:
+    inline static const std::unordered_map<string, array<uint8_t, 8>> supported_ext{
+        {"png", {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}}};
+    // extract and verify file signature
+    string extractFileExt(const string &filename) {
+        std::filesystem::path path(filename);
+        string unverified_ext = path.extension().string();
+        if (!unverified_ext.empty()) {
+            unverified_ext.erase(0, 1); // remove the dot at the front
+        }
+        // verify file ext
+        if (verifySignature(unverified_ext) > 0) {
+            return ext;
+        }
+        return "";
+    }
+    bool verifySignature(string &unverified_ext) {
+        for (size_t i = 0; i < supported_ext.at(unverified_ext).size(); ++i) {
+            if (raw_image_bytes[i] != supported_ext.at(unverified_ext)[i]) {
+                cout << raw_image_bytes[i] << " " << supported_ext.at(unverified_ext)[i] << endl;
+                return false;
+            }
+        }
+        return true;
+    }
+    // reads file as bytes into buffer vector<uint8_t>
+    vector<uint8_t> readImageBytes(const string &filename) {
+        // open file stream as binary
+        std::ifstream file(filename, std::ios::binary | std::ios::ate);
+
+        if (!file.is_open()) {
+            std::cerr << "Failed to open image file:" << filename << endl;
+            return {};
+        }
+
+        // get file size and allowcate vector size
+        std::streamsize size = file.tellg();
+        if (size < 0) {
+            std::cerr << "Something went wrong!" << endl;
+        }
+        vector<uint8_t> buffer(static_cast<size_t>(size));
+        file.seekg(0, std::ios::beg);
+
+        // read raw bytes into buffer
+        if (file.read(reinterpret_cast<char *>(buffer.data()), size)) {
+            cout << "Read file: " << size << " bytes" << endl;
+        }
+
+        return buffer;
+    }
+
   public:
     string ext;
     vector<uint8_t> signature;
     vector<uint8_t> raw_image_bytes;
     vector<Chunk> chunk_collection;
+
+    // constructors
+    Image(const string &filename) {
+        raw_image_bytes = readImageBytes(filename);
+        ext = extractFileExt(filename);
+    }
 };
-
-// reads file as bytes into buffer vector<uint8_t>
-vector<uint8_t> readImageBytes(const string &filename) {
-    // open file stream as binary
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
-
-    if (!file.is_open()) {
-        std::cerr << "Failed to open image file:" << filename << endl;
-        return {};
-    }
-
-    // get file size and allowcate vector size
-    std::streamsize size = file.tellg();
-    if (size < 0) {
-        std::cerr << "Something went wrong!" << endl;
-    }
-    vector<uint8_t> buffer(static_cast<size_t>(size));
-    file.seekg(0, std::ios::beg);
-
-    // read raw bytes into buffer
-    if (file.read(reinterpret_cast<char *>(buffer.data()), size)) {
-        cout << "Read file: " << size << " bytes" << endl;
-    }
-
-    return buffer;
-}
-
-// debugging use
-void displayBytes(vector<uint8_t> &buffer, size_t start, size_t end) {
-    for (int i = start; i < end; ++i) {
-        cout << std::setw(2) << static_cast<unsigned int>(buffer[i]) << ' ';
-    }
-    cout << "\n";
-}
-
-// verify signature
-bool verifySignature(vector<uint8_t> &imageBytes,
-                     std::span<const uint8_t> sig) {
-    for (size_t i = 0; i < sig.size(); ++i) {
-        if (imageBytes[i] != sig[i]) {
-            cout << imageBytes[i] << " " << sig[i] << endl;
-            return false;
-        }
-    }
-    return true;
-}
 
 // 3. Parse chunk:
 //  [data_len : 4 bytes ]
@@ -94,21 +104,20 @@ void parse_chunk(vector<uint8_t> &imageBytes, size_t start) {
 
     // chunk data_len
     for (size_t i = start; i < start + 4; ++i) {
-        data_len = (data_len << 8) | imageBytes[i]; // shift by 8 bits every byte to
-                                                    // combine them into one value
+        data_len = (data_len << 8) | imageBytes[i]; // shift by 8 bits every byte to combine them into one value
     }
 
     // cycle through bytes to parse chunk
     size_t end = 4 + data_len + 4 + 4;
 
-    int counter = 0;
+    size_t counter = 0;
     for (size_t i = start + 4; i < start + 4 + end; ++i) {
         // chunk type
         if (counter < 4) {
             type[counter] = imageBytes[i];
         }
         // chunk data
-        else if (counter < 4 + data_len && data_len > 0) {
+        else if (counter < (4 + data_len) && data_len > 0) {
             data.push_back(imageBytes[i]);
         }
         // CRC
@@ -119,16 +128,13 @@ void parse_chunk(vector<uint8_t> &imageBytes, size_t start) {
     }
 }
 
-void determine_chunk_type() {}
-
 int main() {
-    // convert file into raw bytes and check for signature
-    vector<uint8_t> imageBytes = readImageBytes(IMAGE);
-    bool is_png = verifySignature(imageBytes, PNG_SIGNATURE);
-    //   cout << is_png << endl;
+    // create image object
+    string demo = {"dawg.png"};
+    Image image_obj = Image(demo);
 
     // IHDR and IEND chunk
-    parse_chunk(imageBytes, 8);
+    parse_chunk(image_obj.raw_image_bytes, 8);
 
     //   displayBytes(imageBytes, 8, 12);
 
