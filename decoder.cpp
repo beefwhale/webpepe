@@ -16,14 +16,22 @@ using std::array;
 static constexpr string IMAGE{"dawg.png"};
 static constexpr array<uint8_t,8> PNG_SIGNATURE{0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A};
 
-class Object{
+class Chunk {
     public:
-        string ext;
-        vector<uint8_t> signature;
-        int length;
+        size_t start;
+    size_t end;
+        int data_len;
         int chunk_type;
         int chunk_data;
         int crc;
+};
+
+class Object {
+  public:
+    string ext;
+    vector<uint8_t> signature;
+    vector<uint8_t> raw_image_bytes;
+    vector<Chunk> chunk_collection;
 };
 
 // reads file as bytes into buffer
