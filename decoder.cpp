@@ -136,23 +136,56 @@ class Image {
     }
 };
 
+array<size_t, 7> readHeaderDataBytes(const vector<uint8_t> &imageBytes, const size_t &start) {
+    //    Width:              4 bytes
+    //    Height:             4 bytes
+    //    Bit depth:          1 byte
+    //    Color type:         1 byte
+    //    Compression method: 1 byte
+    //    Filter method:      1 byte
+    //    Interlace method:   1 byte
+    array<size_t, 7> data;
+    for (size_t i = start; i < 13; ++i) {
+        if (i < 4) { // width
+            data[0] = (data[0] << 8) | imageBytes[i];
+        } else if (i < 8) { // height
+            data[1] = (data[1] << 8) | imageBytes[i];
+        } else if (i == 8) { // bit depth
+            data[2] = imageBytes[i];
+        } else if (i == 9) { // colour type
+            data[3] = imageBytes[i];
+        } else if (i == 10) { // compression method
+            data[4] = imageBytes[i];
+        } else if (i == 11) { // filter method
+            data[5] = imageBytes[i];
+        } else if (i == 12) { // interlace method
+            data[6] = imageBytes[i];
+        }
+    }
+
+    return data;
+}
+
 int main() {
     // create image object
     string demo = {"dawg.png"};
     Image image_obj = Image(demo);
 
-    // IHDR chunk
-    Chunk &header_chunk = image_obj.chunk_collection[0];
+    // Read IHDR chunk
+    const Chunk &header_chunk = image_obj.chunk_collection[0];
     cout << "Header Chunk Data Length: " << header_chunk.data_len << endl;
+
+    // read data in header chunk
+    string header_chunk_type_str(header_chunk.type.begin(), header_chunk.type.end());
+    if (header_chunk_type_str == "IHDR") {
+        cout << "Data Type: " << header_chunk_type_str << endl;
+    }
+    // TODO: throw exception here too lazy rn
+    array<size_t, 7> header_chunk_data = readHeaderDataBytes(image_obj.raw_image_bytes, header_chunk.data_index);
+    cout << "Width: " << header_chunk_data[0] << " Height: " << header_chunk_data[1] << endl;
 
     return 0;
 }
-
-// 4. Read IHDR
-// → width
-// → height
-// → bit depth
-// → color type
 
 // 5. Concatenate IDAT chunks
 
