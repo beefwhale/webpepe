@@ -30,8 +30,8 @@ class Chunk {
         }
 
         // cycle through bytes to parse chunk
-        end = data_len + 12;
-        data_index = start + data_len + 4;
+        end = start + data_len + 12;
+        data_index = start + 8;
 
         size_t counter = 0;
         for (size_t i = start + 4; i < end; ++i) {
@@ -119,18 +119,27 @@ class Image {
     vector<uint8_t> signature;
     vector<uint8_t> raw_image_bytes;
     vector<Chunk> chunk_collection;
+    std::unordered_map<string, vector<int>> chunk_collection_types;
 
     // constructors
     Image(const string &filename) {
         raw_image_bytes = readImageBytes(filename);
         ext = extractFileExt(filename);
         // parse chunks
+        int counter = 0;
         if (raw_image_bytes.size() > 0) {
             size_t chunk_index = 8;
             while (chunk_index < raw_image_bytes.size()) {
                 Chunk chunk = Chunk(raw_image_bytes, chunk_index);
                 chunk_collection.push_back(chunk);
+
+                // get chunk type and save index inside chunk collection
+                string chunk_type_str(chunk.type.begin(), chunk.type.end());
+                chunk_collection_types[chunk_type_str].push_back(counter);
+
+                // increment indexes
                 chunk_index = chunk.end;
+                ++counter;
             }
         }
     }
@@ -144,25 +153,16 @@ array<size_t, 7> readHeaderDataBytes(const vector<uint8_t> &imageBytes, const si
     //    Compression method: 1 byte
     //    Filter method:      1 byte
     //    Interlace method:   1 byte
-    array<size_t, 7> data;
-    for (size_t i = start; i < 13; ++i) {
+    array<size_t, 7> data{};
+    for (size_t i = 0; i < 13; ++i) {
         if (i < 4) { // width
-            data[0] = (data[0] << 8) | imageBytes[i];
+            data[0] = (data[0] << 8) | imageBytes[start + i];
         } else if (i < 8) { // height
-            data[1] = (data[1] << 8) | imageBytes[i];
-        } else if (i == 8) { // bit depth
-            data[2] = imageBytes[i];
-        } else if (i == 9) { // colour type
-            data[3] = imageBytes[i];
-        } else if (i == 10) { // compression method
-            data[4] = imageBytes[i];
-        } else if (i == 11) { // filter method
-            data[5] = imageBytes[i];
-        } else if (i == 12) { // interlace method
-            data[6] = imageBytes[i];
+            data[1] = (data[1] << 8) | imageBytes[start + i];
+        } else {
+            data[i] = imageBytes[start + i];
         }
     }
-
     return data;
 }
 
@@ -174,13 +174,6 @@ int main() {
     // Read IHDR chunk
     const Chunk &header_chunk = image_obj.chunk_collection[0];
     cout << "Header Chunk Data Length: " << header_chunk.data_len << endl;
-
-    // read data in header chunk
-    string header_chunk_type_str(header_chunk.type.begin(), header_chunk.type.end());
-    if (header_chunk_type_str == "IHDR") {
-        cout << "Data Type: " << header_chunk_type_str << endl;
-    }
-    // TODO: throw exception here too lazy rn
     array<size_t, 7> header_chunk_data = readHeaderDataBytes(image_obj.raw_image_bytes, header_chunk.data_index);
     cout << "Width: " << header_chunk_data[0] << " Height: " << header_chunk_data[1] << endl;
 
