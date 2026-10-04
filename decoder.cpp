@@ -50,8 +50,8 @@ class Chunk {
   public:
     size_t start;
     size_t end;
-    size_t data_len = 0;
-    size_t data_index;
+    uint32_t data_len = 0;
+    size_t data_index; // TODO: should i store indexes as size_t or uint32_t?
     array<uint8_t, 4> type;
     array<uint8_t, 4> crc;
 
@@ -119,14 +119,14 @@ class Image {
     vector<uint8_t> signature;
     vector<uint8_t> raw_image_bytes;
     vector<Chunk> chunk_collection;
-    std::unordered_map<string, vector<int>> chunk_collection_types;
+    std::unordered_map<string, vector<size_t>> chunk_collection_types;
 
     // constructors
     Image(const string &filename) {
         raw_image_bytes = readImageBytes(filename);
         ext = extractFileExt(filename);
         // parse chunks
-        int counter = 0;
+        size_t counter = 0;
         if (raw_image_bytes.size() > 0) {
             size_t chunk_index = 8;
             while (chunk_index < raw_image_bytes.size()) {
@@ -177,10 +177,18 @@ int main() {
     array<size_t, 7> header_chunk_data = readHeaderDataBytes(image_obj.raw_image_bytes, header_chunk.data_index);
     cout << "Width: " << header_chunk_data[0] << " Height: " << header_chunk_data[1] << endl;
 
+    // Concatenate IDAT chunks
+    vector<uint8_t> idat_chunks{};
+    for (size_t c : image_obj.chunk_collection_types["IDAT"]) {
+        // read chunk and copy data bytes of each chunk
+        Chunk &chunk = image_obj.chunk_collection[c];
+        for (size_t i = chunk.data_index; i < chunk.data_index + chunk.data_len; ++i) {
+            idat_chunks.push_back(image_obj.raw_image_bytes[i]); // TODO: maybe theres a faster way to make a copy of the array and add them to the vector
+        }
+    }
+    cout << "IDAT chunks data lengths : " << idat_chunks.size() << endl;
     return 0;
 }
-
-// 5. Concatenate IDAT chunks
 
 // 6. zlib/DEFLATE decompress IDAT
 
