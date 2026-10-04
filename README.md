@@ -27,6 +27,7 @@ To make my blog faster! and also to understand image compression on a deeper lev
 ## design decisions
 
 - `size_t`: Using size_t is annoying since my compiler throws warnings whenever i default back to int on my variables but the choice of defining the vector with `size_t` that stores all of my raw image bytes is to ensure that my vector is always large enough on the file format of my target architecture (2^64 -1) where my image data chunk has a max of 2^31 bytes. It also doesnt allow negative values and so my vector can never be read with a size mismatch.
+- `idat_chunks.reserve(total_idat_chunks_len)`: By finding the total size of the vector first I can reserve the size to prevent constant reallocation of the vector whenever a `push_back` happens. After that used `insert` by first creating an iterator pointing to the object we want to copy and then using it inside the param to squash the nested for loop into 2 lines.
 
 ## debugging 
 

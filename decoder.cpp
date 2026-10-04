@@ -50,8 +50,8 @@ class Chunk {
   public:
     size_t start;
     size_t end;
-    uint32_t data_len = 0;
     size_t data_index; // TODO: should i store indexes as size_t or uint32_t?
+    uint32_t data_len = 0;
     array<uint8_t, 4> type;
     array<uint8_t, 4> crc;
 
@@ -177,14 +177,20 @@ int main() {
     array<size_t, 7> header_chunk_data = readHeaderDataBytes(image_obj.raw_image_bytes, header_chunk.data_index);
     cout << "Width: " << header_chunk_data[0] << " Height: " << header_chunk_data[1] << endl;
 
-    // Concatenate IDAT chunks
-    vector<uint8_t> idat_chunks{};
+    // find out sizes of IDAT chunks
+    size_t total_idat_chunks_len{0};
     for (size_t c : image_obj.chunk_collection_types["IDAT"]) {
-        // read chunk and copy data bytes of each chunk
+        total_idat_chunks_len += image_obj.chunk_collection[c].data_len;
+    }
+    vector<uint8_t> idat_chunks{};
+    idat_chunks.reserve(total_idat_chunks_len); // to prevent constant realloc
+
+    // Concatenate IDAT chunks
+    for (size_t c : image_obj.chunk_collection_types["IDAT"]) {
         Chunk &chunk = image_obj.chunk_collection[c];
-        for (size_t i = chunk.data_index; i < chunk.data_index + chunk.data_len; ++i) {
-            idat_chunks.push_back(image_obj.raw_image_bytes[i]); // TODO: maybe theres a faster way to make a copy of the array and add them to the vector
-        }
+        // read chunk and copy data bytes of each chunk
+        auto start = image_obj.raw_image_bytes.begin() + chunk.data_len; // create an iterator that points to the object we want
+        idat_chunks.insert(idat_chunks.end(), start, start + chunk.data_len);
     }
     cout << "IDAT chunks data lengths : " << idat_chunks.size() << endl;
     return 0;
