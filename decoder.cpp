@@ -160,7 +160,7 @@ array<size_t, 7> readHeaderDataBytes(const vector<uint8_t> &imageBytes, const si
         } else if (i < 8) { // height
             data[1] = (data[1] << 8) | imageBytes[start + i];
         } else {
-            data[i] = imageBytes[start + i];
+            data[i-6] = imageBytes[start + i];
         }
     }
     return data;
