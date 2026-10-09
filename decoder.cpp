@@ -8,8 +8,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-extern "C"{
-    #include <zlib.h>
+extern "C" {
+#include <zlib.h>
 }
 
 using std::array;
@@ -163,27 +163,27 @@ array<size_t, 7> readHeaderDataBytes(const vector<uint8_t> &imageBytes, const si
         } else if (i < 8) { // height
             data[1] = (data[1] << 8) | imageBytes[start + i];
         } else {
-            data[i-6] = imageBytes[start + i];
+            data[i - 6] = imageBytes[start + i];
         }
     }
     return data;
 }
 
-void zlib(size_t& width, size_t& height, vector<uint8_t>& idat_chunks){
+void zlib(size_t &width, size_t &height, vector<uint8_t> &idat_chunks) {
     // each line has 1 filter and 4 bytes per pixel
-    vector<uint8_t> scanlines(height*(1+(4*width))); 
+    vector<uint8_t> scanlines(height * (1 + (4 * width)));
     // produce the length of output buffer in zlibs format: unsigned long int
     // zlib updates this values after decompressions
     uLongf output_size = static_cast<uLongf>(scanlines.size());
-    
+
     // decompress
-   int status  = uncompress(scanlines.data(), &output_size, idat_chunks.data(), static_cast<uLongf>(idat_chunks.size()));
+    int status = uncompress(scanlines.data(), &output_size, idat_chunks.data(), static_cast<uLongf>(idat_chunks.size()));
 
-   if (status != Z_OK){
-    throw std::runtime_error("Zlib decompression failed: "+ std::to_string(status));
-   }
+    if (status != Z_OK) {
+        throw std::runtime_error("Zlib decompression failed: " + std::to_string(status));
+    }
 
-   scanlines.resize(output_size);
+    scanlines.resize(output_size);
 }
 
 int main() {
@@ -219,7 +219,6 @@ int main() {
 
     return 0;
 }
-
 
 // 7. Reverse PNG scanline filters
 
