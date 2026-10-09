@@ -8,6 +8,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+extern "C"{
+    #include <zlib.h>
+}
 
 using std::array;
 using std::byte;
@@ -166,6 +169,23 @@ array<size_t, 7> readHeaderDataBytes(const vector<uint8_t> &imageBytes, const si
     return data;
 }
 
+void zlib(size_t& width, size_t& height, vector<uint8_t>& idat_chunks){
+    // each line has 1 filter and 4 bytes per pixel
+    vector<uint8_t> scanlines(height*(1+(4*width))); 
+    // produce the length of output buffer in zlibs format: unsigned long int
+    // zlib updates this values after decompressions
+    uLongf output_size = static_cast<uLongf>(scanlines.size());
+    
+    // decompress
+   int status  = uncompress(scanlines.data(), &output_size, idat_chunks.data(), static_cast<uLongf>(idat_chunks.size()));
+
+   if (status != Z_OK){
+    throw std::runtime_error("Zlib decompression failed: "+ std::to_string(status));
+   }
+
+   scanlines.resize(output_size);
+}
+
 int main() {
     // create image object
     string demo = {"dawg.png"};
@@ -189,14 +209,17 @@ int main() {
     for (size_t c : image_obj.chunk_collection_types["IDAT"]) {
         Chunk &chunk = image_obj.chunk_collection[c];
         // read chunk and copy data bytes of each chunk
-        auto start = image_obj.raw_image_bytes.begin() + chunk.data_len; // create an iterator that points to the object we want
+        auto start = image_obj.raw_image_bytes.begin() + chunk.data_index; // create an iterator that points to the object we want
         idat_chunks.insert(idat_chunks.end(), start, start + chunk.data_len);
     }
     cout << "IDAT chunks data lengths : " << idat_chunks.size() << endl;
+
+    // zlib/DEFLATE decompress IDAT
+    zlib(header_chunk_data[0], header_chunk_data[1], idat_chunks);
+
     return 0;
 }
 
-// 6. zlib/DEFLATE decompress IDAT
 
 // 7. Reverse PNG scanline filters
 
