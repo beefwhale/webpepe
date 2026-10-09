@@ -169,7 +169,7 @@ array<size_t, 7> readHeaderDataBytes(const vector<uint8_t> &imageBytes, const si
     return data;
 }
 
-void zlib(size_t &width, size_t &height, vector<uint8_t> &idat_chunks) {
+vector<uint8_t> zlib(int &width, int &height, vector<uint8_t> &idat_chunks) {
     // each line has 1 filter and 4 bytes per pixel
     vector<uint8_t> scanlines(height * (1 + (4 * width)));
     // produce the length of output buffer in zlibs format: unsigned long int
@@ -184,6 +184,7 @@ void zlib(size_t &width, size_t &height, vector<uint8_t> &idat_chunks) {
     }
 
     scanlines.resize(output_size);
+    return scanlines;
 }
 
 int main() {
@@ -213,16 +214,55 @@ int main() {
         idat_chunks.insert(idat_chunks.end(), start, start + chunk.data_len);
     }
     cout << "IDAT chunks data lengths : " << idat_chunks.size() << endl;
+    cout << "Filter Method: " << header_chunk_data[5] << endl;
+    cout << "Interlacing: " << header_chunk_data[6] << endl;
+
+    int colour_type = header_chunk_data[3];
+    int width = header_chunk_data[0];
+    int height = header_chunk_data[1];
 
     // zlib/DEFLATE decompress IDAT
-    zlib(header_chunk_data[0], header_chunk_data[1], idat_chunks);
+    vector<uint8_t> pixels{};
+    if (header_chunk_data[4] == 0) {
+        pixels = zlib(width, height, idat_chunks);
+    } else {
+        throw std::runtime_error("Compression method invalid");
+    }
+
+    // TODO: replace the strange size_t types on the len and index vars
+    // check for filters
+    if (header_chunk_data[5] == 0) {
+        // calculate len of each row based on colourtype of image
+        // 0       1,2,4,8,16  Each pixel is a grayscale sample.
+        // 2       8,16        Each pixel is an R,G,B triple.
+        // 3       1,2,4,8     Each pixel is a palette index; a PLTE chunk must appear.
+        // 4       8,16        Each pixel is a grayscale sample, followed by an alpha sample.
+        // 6       8,16        Each pixel is an R,G,B triple, followed by an alpha sample.
+        int row_bytes = 0;
+        if (colour_type == 0) { // Greyscale
+            row_bytes = 1 + width;
+        } else if (colour_type == 2) { // RGB
+            row_bytes = 1 + width * 3;
+        } else if (colour_type == 6) { // RGBA
+            row_bytes = 1 + width * 4;
+        }
+
+        // TODO: implement filter reversal
+        // erase filter byte of every row by traversing backwards
+        for (int row = height - 1; row >= 0; --row) {
+            int index = row * row_bytes;
+            if (pixels[index] != 0) {
+                throw std::runtime_error("Filter reversal not implemented yet");
+            }
+            pixels.erase(pixels.begin() + index);
+        }
+    } else {
+        throw std::runtime_error("Filtering method unsupported");
+    }
+    // TOOD: interlacing
+    // Produce final pixels
 
     return 0;
 }
-
-// 7. Reverse PNG scanline filters
-
-// 8. Produce something like:
-// vector<uint8_t> pixels
 
 // 9. Feed those pixels into your JPEG encode
