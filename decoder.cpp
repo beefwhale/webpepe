@@ -187,6 +187,20 @@ vector<uint8_t> zlib(int &width, int &height, vector<uint8_t> &idat_chunks) {
     return scanlines;
 }
 
+int paeth_predictor(int &a, int &b, int &c) {
+    int p = a + b - c;
+    int pa = std::abs(p - a);
+    int pb = std::abs(p - b);
+    int pc = std::abs(p - c);
+    if (pa <= pb && pa <= pc) {
+        return a;
+    } else if (pb <= pa && pb <= pc) {
+        return b;
+    } else {
+        return c;
+    }
+}
+
 int main() {
     // create image object
     string demo = {"dawg.png"};
@@ -254,7 +268,7 @@ int main() {
         } else if (colour_type == 3 || colour_type == 4) {
             throw std::runtime_error("Im too lazy to support images with bytes that are not directly RGB");
         }
-        int bpp = (channels * bit_depth - 7) / 8; // byte per pixel
+        int bpp = (channels * bit_depth + 7) / 8; // byte per pixel
 
         // TODO: implement filter reversal
         // erase filter byte of every row by traversing backwards
@@ -292,6 +306,22 @@ int main() {
                 }
                 break;
             case 4: // Paeth
+                    // simple linear function of the 3 neighbouring pixels left, , up, upper left
+                for (int x = index + 1; x < end; ++x) {
+                    int left = 0;
+                    int up = 0;
+                    int upleft = 0;
+                    if (x >= index + 1 + bpp) {
+                        left = pixels[x - bpp];
+                    }
+                    if (row > 0) {
+                        up = pixels[x - row_bytes];
+                    }
+                    if (row > 0 && x >= index + 1 + bpp) {
+                        upleft = pixels[x - row_bytes - bpp];
+                    }
+                    pixels[x] = pixels[x] + static_cast<uint8_t>(paeth_predictor(left, up, upleft));
+                }
                 break;
             default:
                 throw std::runtime_error("This filter byte is funky");
