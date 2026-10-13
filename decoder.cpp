@@ -220,6 +220,7 @@ int main() {
     int colour_type = header_chunk_data[3];
     int width = header_chunk_data[0];
     int height = header_chunk_data[1];
+    int bit_depth = header_chunk_data[2];
 
     // zlib/DEFLATE decompress IDAT
     vector<uint8_t> pixels{};
@@ -233,33 +234,76 @@ int main() {
     // check for filters
     if (header_chunk_data[5] == 0) {
         // calculate len of each row based on colourtype of image
+        // id      supported bit depth
         // 0       1,2,4,8,16  Each pixel is a grayscale sample.
         // 2       8,16        Each pixel is an R,G,B triple.
         // 3       1,2,4,8     Each pixel is a palette index; a PLTE chunk must appear.
         // 4       8,16        Each pixel is a grayscale sample, followed by an alpha sample.
         // 6       8,16        Each pixel is an R,G,B triple, followed by an alpha sample.
         int row_bytes = 0;
+        int channels = 0;
         if (colour_type == 0) { // Greyscale
             row_bytes = 1 + width;
+            channels = 1;
         } else if (colour_type == 2) { // RGB
             row_bytes = 1 + width * 3;
+            channels = 3;
         } else if (colour_type == 6) { // RGBA
             row_bytes = 1 + width * 4;
+            channels = 4;
+        } else if (colour_type == 3 || colour_type == 4) {
+            throw std::runtime_error("Im too lazy to support images with bytes that are not directly RGB");
         }
+        int bpp = (channels * bit_depth - 7) / 8; // byte per pixel
 
         // TODO: implement filter reversal
         // erase filter byte of every row by traversing backwards
         for (int row = height - 1; row >= 0; --row) {
-            int index = row * row_bytes;
-            if (pixels[index] != 0) {
-                throw std::runtime_error("Filter reversal not implemented yet");
+            int index = row * row_bytes; // filter byte
+            int end = index + row_bytes; // end of row
+            switch (pixels[index]) {
+            case 0: // None
+                break;
+            case 1: // Sub
+                // stores the difference between each byte and the corresponding byte of the pixel to the left
+                for (int x = index + 1 + bpp; x < end; ++x) {
+                    pixels[x] = static_cast<uint8_t>(pixels[x] + pixels[x - bpp]);
+                }
+                break;
+            case 2: // Up
+                if (row > 0) {
+                    for (int x = index + 1; x < end; ++x) {
+                        pixels[x] = static_cast<uint8_t>(pixels[x] + pixels[x - row_bytes]);
+                    }
+                }
+                break;
+            case 3: // Average
+                // stores the avg btwn the top and left pixels
+                for (int x = index + 1; x < end; ++x) {
+                    int left = 0;
+                    int up = 0;
+                    if (x >= index + 1 + bpp) {
+                        left = pixels[x - bpp];
+                    }
+                    if (row > 0) {
+                        up = pixels[x - row_bytes];
+                    }
+                    pixels[x] = static_cast<uint8_t>(pixels[x] + std::floor((left + up) / 2));
+                }
+                break;
+            case 4: // Paeth
+                break;
+            default:
+                throw std::runtime_error("This filter byte is funky");
             }
+            // cleanup pixel after reversal
             pixels.erase(pixels.begin() + index);
         }
     } else {
         throw std::runtime_error("Filtering method unsupported");
     }
     // TOOD: interlacing
+
     // Produce final pixels
 
     return 0;
