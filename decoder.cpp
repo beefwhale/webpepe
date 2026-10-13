@@ -331,10 +331,10 @@ int main() {
     } else {
         throw std::runtime_error("Filtering method unsupported");
     }
-    // TOOD: interlacing
-
-    // Produce final pixels
-
+    // TODO: interlacing
+    if (header_chunk_data[6] == 1) {
+        throw std::runtime_error("Im too lazy to support interlacing rn");
+    }
     return 0;
 }
 
