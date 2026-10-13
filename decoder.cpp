@@ -254,25 +254,21 @@ int main() {
         // 3       1,2,4,8     Each pixel is a palette index; a PLTE chunk must appear.
         // 4       8,16        Each pixel is a grayscale sample, followed by an alpha sample.
         // 6       8,16        Each pixel is an R,G,B triple, followed by an alpha sample.
-        int row_bytes = 0;
         int channels = 0;
         if (colour_type == 0) { // Greyscale
-            row_bytes = 1 + width;
             channels = 1;
         } else if (colour_type == 2) { // RGB
-            row_bytes = 1 + width * 3;
             channels = 3;
         } else if (colour_type == 6) { // RGBA
-            row_bytes = 1 + width * 4;
             channels = 4;
         } else if (colour_type == 3 || colour_type == 4) {
             throw std::runtime_error("Im too lazy to support images with bytes that are not directly RGB");
         }
+        int row_bytes = 1 + (width * channels * bit_depth + 7) / 8;
         int bpp = (channels * bit_depth + 7) / 8; // byte per pixel
 
-        // TODO: implement filter reversal
         // erase filter byte of every row by traversing backwards
-        for (int row = height - 1; row >= 0; --row) {
+        for (int row = 0; row < height; ++row) {
             int index = row * row_bytes; // filter byte
             int end = index + row_bytes; // end of row
             switch (pixels[index]) {
@@ -326,7 +322,10 @@ int main() {
             default:
                 throw std::runtime_error("This filter byte is funky");
             }
-            // cleanup pixel after reversal
+        }
+        // cleanup pixel after reversal
+        for (int row = height - 1; row >= 0; --row) {
+            int index = row * row_bytes; // filter byte
             pixels.erase(pixels.begin() + index);
         }
     } else {
